@@ -1,20 +1,15 @@
 package org.powernukkitx.holograms.commands;
 
-import cn.nukkit.Server;
 import cn.nukkit.command.CommandSender;
 import cn.nukkit.command.PluginCommand;
 import cn.nukkit.form.element.custom.ElementInput;
 import cn.nukkit.form.element.custom.ElementSlider;
 import cn.nukkit.form.window.CustomForm;
 import cn.nukkit.form.window.SimpleForm;
-import cn.nukkit.math.Vector3;
-import cn.nukkit.network.protocol.ServerScriptDebugDrawerPacket;
-import cn.nukkit.network.protocol.types.debugshape.TextDebugShape;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import org.powernukkitx.holograms.Holograms;
 import org.powernukkitx.holograms.entity.EntityHologram;
 
-import java.awt.*;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -103,12 +98,8 @@ public class HologramCommand extends PluginCommand<Holograms> {
                                                                move.send(player4);
                                                            })
                                                            .addButton("§cDelete line", player4 -> {
+                                                               hologram.removeLine(finalI);
                                                                content.remove(finalI);
-                                                               ServerScriptDebugDrawerPacket packet = new ServerScriptDebugDrawerPacket();
-                                                               TextDebugShape shape = new TextDebugShape(Vector3.ZERO.asVector3f(), Color.WHITE, "", null);
-                                                               shape.networkId = ((hologram.getId()) << 32) | (finalI & 0xffffffffL);
-                                                               packet.shapes.add(shape);
-                                                               Server.broadcastPacket(hologram.getViewers().values(), packet);
                                                                hologram.respawnToAll();
                                                            })
                                                            .send(player3);

@@ -5,7 +5,6 @@ import cn.nukkit.Server;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.custom.CustomEntity;
 import cn.nukkit.entity.custom.CustomEntityDefinition;
-import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.Location;
 import cn.nukkit.level.format.IChunk;
@@ -15,23 +14,16 @@ import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.nbt.tag.StringTag;
 import cn.nukkit.nbt.tag.Tag;
-import cn.nukkit.network.protocol.ServerScriptDebugDrawerPacket;
-import cn.nukkit.network.protocol.types.debugshape.TextDebugShape;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.SneakyThrows;
+import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 import org.jetbrains.annotations.NotNull;
 import org.powernukkitx.placeholderapi.PlaceholderAPI;
 
-import java.awt.*;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
 
-@Getter
-@Setter
 public class EntityHologram extends Entity implements CustomEntity {
 
     public static final String IDENTIFIER = "powernukkitx:hologram";
@@ -62,21 +54,21 @@ public class EntityHologram extends Entity implements CustomEntity {
     @Override
     protected void initEntity() {
         super.initEntity();
-        if(!this.namedTag.containsFloat(SPACING)) {
-            this.namedTag.putFloat(SPACING, 0.3f);
+        if(!this.nbt.containsFloat(SPACING)) {
+            this.nbt.putFloat(SPACING, 0.3f);
         }
-        this.spacing = this.namedTag.getFloat(SPACING);
-        if(!this.namedTag.containsList(LINES)) {
-            this.namedTag.putList(LINES, new ListTag<>(Tag.TAG_String));
+        this.spacing = this.nbt.getFloat(SPACING);
+        if(!this.nbt.containsList(LINES)) {
+            this.nbt.putList(LINES, new ListTag<>(Tag.TAG_String));
         }
-        this.lines = new ArrayList<>(this.namedTag.getList(LINES, StringTag.class).getAll().stream().map(StringTag::parseValue).toList());
+        this.lines = new ArrayList<>(this.nbt.getList(LINES, StringTag.class).getAll().stream().map(StringTag::parseValue).toList());
     }
 
     @Override
     public void saveNBT() {
         super.saveNBT();
-        this.namedTag.putFloat(SPACING, spacing);
-        this.namedTag.putList(LINES, new ListTag<>(lines.stream().map(StringTag::new).toList()));
+        this.nbt.putFloat(SPACING, spacing);
+        this.nbt.putList(LINES, new ListTag<>(lines.stream().map(StringTag::new).toList()));
     }
 
     @Override
@@ -90,35 +82,27 @@ public class EntityHologram extends Entity implements CustomEntity {
     }
 
     @Override
-    @SneakyThrows
     public void spawnTo(Player player) {
         if(this.closed) return;
         if (!this.hasSpawned.containsKey(player.getLoaderId()) && this.chunk != null && player.getUsedChunks().contains(Level.chunkHash(this.chunk.getX(), this.chunk.getZ()))) {
             this.hasSpawned.put(player.getLoaderId(), player);
             Location loc = this.getLocation();
-            ServerScriptDebugDrawerPacket packet = new ServerScriptDebugDrawerPacket();
             List<String> lines = this.getDisplayLines(player);
             for (int i = lines.size() - 1; i >= 0; i--) {
                 loc.y += spacing;
-                TextDebugShape shape = new TextDebugShape(loc.asVector3f(), Color.WHITE, lines.get(i), null);
-                shape.networkId = ((this.getId()) << 32) | (i & 0xffffffffL);
-                packet.shapes.add(shape);
+                sendFloatingText(player, i, loc, lines.get(i), false);
             }
             lineCache.put(player.getLoaderId(), new ArrayList<>(lines));
-            player.dataPacket(packet);
         }
     }
 
     @Override
     public void despawnFrom(Player player) {
         if (this.hasSpawned.containsKey(player.getLoaderId())) {
-            ServerScriptDebugDrawerPacket packet = new ServerScriptDebugDrawerPacket();
-            for (int i = lines.size() - 1; i >= 0; i--) {
-                TextDebugShape shape = new TextDebugShape(Vector3.ZERO.asVector3f(), Color.WHITE, "", null);
-                shape.networkId = ((this.getId()) << 32) | (i & 0xffffffffL);
-                packet.shapes.add(shape);
+            int lineCount = this.lineCache.getOrDefault(player.getLoaderId(), this.lines).size();
+            for (int i = lineCount - 1; i >= 0; i--) {
+                sendFloatingText(player, i, Vector3.ZERO, "", true);
             }
-            player.dataPacket(packet);
             this.hasSpawned.remove(player.getLoaderId());
             this.lineCache.remove(player.getLoaderId());
         }
@@ -135,31 +119,70 @@ public class EntityHologram extends Entity implements CustomEntity {
         if(isClosed()) return false;
         for(Player player : getViewers().values()) {
             List<String> sentLines = this.lineCache.get(player.getLoaderId());
+            if (sentLines == null) {
+                spawnTo(player);
+                continue;
+            }
             if(sentLines.size() != lines.size()) {
-                hasSpawned.remove(player.getLoaderId());
+                despawnFrom(player);
                 spawnTo(player);
                 continue;
             }
             List<String> curLines = getDisplayLines(player);
             Location loc = this.getLocation();
-            ServerScriptDebugDrawerPacket packet = new ServerScriptDebugDrawerPacket();
             for (int i = sentLines.size() - 1; i >= 0; i--) {
                 loc.y += spacing;
                 String curLine = curLines.get(i);
                 if(!sentLines.get(i).equals(curLine)) {
                     sentLines.set(i, curLine);
-                    TextDebugShape shape = new TextDebugShape(loc.asVector3f(), Color.WHITE, curLine, null);
-                    shape.networkId = ((this.getId()) << 32) | (i & 0xffffffffL);
-                    packet.shapes.add(shape);
+                    sendFloatingText(player, i, loc, curLine, false);
                 }
             }
-            if(!packet.shapes.isEmpty()) player.dataPacket(packet);
         }
         return super.onUpdate(currentTick);
     }
 
     @Override
     public void kill() {
+    }
+
+    public List<String> getLines() {
+        return this.lines;
+    }
+
+    public void setLines(List<String> lines) {
+        this.lines = lines;
+    }
+
+    public float getSpacing() {
+        return this.spacing;
+    }
+
+    public void setSpacing(float spacing) {
+        this.spacing = spacing;
+    }
+
+    public void removeLine(int lineIndex) {
+        for (Player viewer : getViewers().values()) {
+            sendFloatingText(viewer, lineIndex, Vector3.ZERO, "", true);
+        }
+    }
+
+    private void sendFloatingText(Player player, int lineIndex, Vector3 position, String text, boolean invisible) {
+        FloatingTextParticle particle = new FloatingTextParticle(position, text);
+        try {
+            text_id.setLong(particle, lineId(lineIndex));
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Unable to assign floating text entity id", e);
+        }
+        particle.setInvisible(invisible);
+        for (BedrockPacket packet : particle.encode()) {
+            player.sendPacket(packet);
+        }
+    }
+
+    private long lineId(int lineIndex) {
+        return (this.getId() << 32) | (lineIndex & 0xffffffffL);
     }
 
     public static CustomEntityDefinition definition() {
