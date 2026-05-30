@@ -192,4 +192,9 @@ public class EntityHologram extends Entity implements CustomEntity {
                 .isSummonable(false)
                 .build();
     }
+
+    @Override
+    public boolean isPersistent() {
+        return true;
+    }
 }
