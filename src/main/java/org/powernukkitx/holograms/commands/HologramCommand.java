@@ -1,11 +1,11 @@
 package org.powernukkitx.holograms.commands;
 
-import cn.nukkit.command.CommandSender;
-import cn.nukkit.command.PluginCommand;
-import cn.nukkit.form.element.custom.ElementInput;
-import cn.nukkit.form.element.custom.ElementSlider;
-import cn.nukkit.form.window.CustomForm;
-import cn.nukkit.form.window.SimpleForm;
+import org.powernukkitx.command.CommandSender;
+import org.powernukkitx.command.PluginCommand;
+import org.powernukkitx.form.element.custom.ElementInput;
+import org.powernukkitx.form.element.custom.ElementSlider;
+import org.powernukkitx.form.window.CustomForm;
+import org.powernukkitx.form.window.SimpleForm;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import org.powernukkitx.holograms.Holograms;
 import org.powernukkitx.holograms.entity.EntityHologram;

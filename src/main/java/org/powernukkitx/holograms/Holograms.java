@@ -1,13 +1,13 @@
 package org.powernukkitx.holograms;
 
-import cn.nukkit.entity.Entity;
-import cn.nukkit.level.Position;
-import cn.nukkit.nbt.tag.CompoundTag;
-import cn.nukkit.nbt.tag.ListTag;
-import cn.nukkit.nbt.tag.StringTag;
-import cn.nukkit.plugin.PluginBase;
-import cn.nukkit.registry.RegisterException;
-import cn.nukkit.registry.Registries;
+import org.powernukkitx.entity.Entity;
+import org.powernukkitx.level.Position;
+import org.powernukkitx.nbt.tag.CompoundTag;
+import org.powernukkitx.nbt.tag.ListTag;
+import org.powernukkitx.nbt.tag.StringTag;
+import org.powernukkitx.plugin.PluginBase;
+import org.powernukkitx.registry.RegisterException;
+import org.powernukkitx.registry.Registries;
 import org.powernukkitx.holograms.commands.HologramCommand;
 import org.powernukkitx.holograms.entity.EntityHologram;
 
